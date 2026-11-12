@@ -1,0 +1,11 @@
+.venv/
+node_modules/
+__pycache__/
+*.pyc
+.DS_Store
+*.log
+# never commit real documents
+*.pdf
+*.docx
+*.pptx
+*.xlsx
