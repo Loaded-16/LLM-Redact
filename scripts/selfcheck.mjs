@@ -41,6 +41,9 @@ try {
   if (!tools.some((t) => t.name === "open_redactor")) throw new Error("open_redactor tool missing");
   const status = await rpc("tools/call", { name: "redactor_status", arguments: {} });
   if (status.isError) throw new Error(status.content[0].text);
+  const f = status.structuredContent?.features || {};
+  if (process.env.REDACTOR_NER === "gliner" && f.gliner !== "on") throw new Error("GLiNER add-on was requested but did not load.");
+  if (process.env.REDACTOR_ARABIC === "1" && f.arabic !== "on") throw new Error("Arabic add-on was requested but did not load.");
   const r = await rpc("tools/call", {
     name: "redact_content",
     arguments: { text: "Email Rami Haddad at rami@example.com or call 03 123 456." },
@@ -48,7 +51,7 @@ try {
   if (r.isError) throw new Error(r.content[0].text);
   const masked = r.structuredContent.masked;
   if (masked.includes("Rami") || masked.includes("rami@") || masked.includes("123 456")) throw new Error(`Leak: ${masked}`);
-  console.log("Self-check passed:");
+  console.log(`Self-check passed (add-ons: ${["gliner", "arabic"].filter((k) => f[k] === "on").concat(f.ocr ? ["ocr"] : []).join(", ") || "none"}):`);
   console.log(`  in:  Email Rami Haddad at rami@example.com or call 03 123 456.`);
   console.log(`  out: ${masked}`);
   proc.kill();

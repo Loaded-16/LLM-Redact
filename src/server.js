@@ -248,11 +248,13 @@ export function createServer(worker) {
         upload_id: z.string().optional(),
         entities: z.array(z.string()).optional(),
         custom_terms: z.array(z.string()).optional(),
+        keep: z.array(z.string()).optional(),
         remove_images: z.boolean().optional(),
+        flatten: z.boolean().optional(),
       },
       _meta: appOnly,
     },
-    async ({ text, file_name, file_b64, upload_id, entities, custom_terms, remove_images }) => {
+    async ({ text, file_name, file_b64, upload_id, entities, custom_terms, keep, remove_images, flatten }) => {
       try {
         if (upload_id) {
           const u = uploads.get(upload_id);
@@ -270,10 +272,13 @@ export function createServer(worker) {
           file_b64,
           entities,
           custom_terms,
+          keep,
           remove_images,
+          flatten,
         });
         return {
-          // Short summary only. The masked text travels in structuredContent.
+          // Short summary only. The masked text and the review list (which
+          // holds real values, for the panel only) travel in structuredContent.
           content: [{ type: "text", text: `Redacted ${result.total} item(s) from ${result.source}.` }],
           structuredContent: result,
         };

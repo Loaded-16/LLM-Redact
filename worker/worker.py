@@ -169,6 +169,11 @@ def build_analyzer():
     analyzer.registry.add_recognizer(LongDigitsRecognizer())
 
     analyzer.registry.add_recognizer(NameListRecognizer())
+
+    # Optional models (off unless switched on by setup.sh flags).
+    from models import add_arabic, add_gliner
+    add_gliner(analyzer)
+    add_arabic(analyzer)
     return analyzer
 
 
@@ -260,6 +265,17 @@ class DocStore:
 
 
 DOCS = DocStore()
+
+# Values the user unticked in the review step: left visible for the rest of
+# the session (memory only, cleared on "Forget all").
+KEEP = set()
+
+# Last placeholder number used per type (memory only).
+COUNTERS = {}
+
+
+def _key(value):
+    return re.sub(r"\s+", " ", value).strip().lower()
 
 
 CURRENCY_RE = re.compile(
@@ -367,9 +383,10 @@ def op_redact(req):
         name = None
         source = "pasted text"
     text = normalize_text(text)
-    masked, counts, values, new_values = detect_and_mask(text, req)
+    masked, counts, values, new_values, types = detect_and_mask(text, req)
     result = {
         "masked": masked,
+        "detections": summarize_detections(values, types),
         "counts": counts,
         "total": sum(counts.values()),
         "new_values": new_values,
@@ -377,17 +394,18 @@ def op_redact(req):
         "chars": len(text),
     }
     if data is not None and name.lower().endswith(".pdf"):
-        result["pdf"] = redact_pdf_document(name, data, values, bool(req.get("remove_images")), masked)
+        result["pdf"] = redact_pdf_document(name, data, values, bool(req.get("remove_images")), masked,
+                                            flatten=bool(req.get("flatten")))
     return result
 
 
-def redact_pdf_document(name, data, values, remove_images, masked):
+def redact_pdf_document(name, data, values, remove_images, masked, flatten=False):
     """Redact the PDF itself and keep only the redacted copy, in memory."""
     from pdf_redact import page_texts, redact_pdf, still_present
 
     replacements = sorted({(re.sub(r"\s+", " ", v).strip(), tag) for v, tag in values if v.strip()},
                           key=lambda x: len(x[0]), reverse=True)
-    out, report = redact_pdf(data, replacements, remove_images)
+    out, report = redact_pdf(data, replacements, remove_images, flatten=flatten)
 
     # The page text Claude receives alongside each page image.
     masked_pages = [mask_with_values(t, replacements) for t in page_texts(data)]
@@ -405,6 +423,8 @@ def redact_pdf_document(name, data, values, remove_images, masked):
         "pages": report["pages"],
         "boxes": report["boxes"],
         "images_removed": report["images_removed"],
+        "flattened": report.get("flattened", False),
+        "ocr_pages": report.get("ocr_pages", 0),
         "verified": verified,
         "leak_count": len(problems),
     }
@@ -438,6 +458,16 @@ def detect_and_mask(text, req):
 
     entities = [e for e in (req.get("entities") or DEFAULT_ENTITIES) if e in ALL_ENTITIES]
     terms = [t.strip() for t in (req.get("custom_terms") or []) if t and t.strip()]
+
+    # Review step: what the user unticked stays visible, what they added is hidden.
+    for v in req.get("keep") or []:
+        if v and v.strip():
+            KEEP.add(_key(v))
+            for bucket in CODEBOOK.values():
+                for known in [k for k in bucket if _key(k) == _key(v)]:
+                    del bucket[known]
+    terms_keys = {_key(t) for t in terms}
+    KEEP.difference_update(terms_keys)  # adding something again overrides an earlier "keep"
 
     ad_hoc = []
     if terms:
@@ -481,6 +511,9 @@ def detect_and_mask(text, req):
         results = clean_person_spans(text, results)
         results = propagate_names(text, results, CODEBOOK.get("PERSON", {}).keys())
 
+    if KEEP:
+        results = [r for r in results if _key(text[r.start:r.end]) not in KEEP]
+
     before = sum(len(v) for v in CODEBOOK.values())
 
     # Pass 1: let the anonymizer resolve overlaps, then register new values in
@@ -503,8 +536,10 @@ def detect_and_mask(text, req):
         if shared:
             bucket[item.text] = shared  # "Rami" and "Rami Haddad" are one person
         else:
-            used = len(set(bucket.values()))
-            bucket[item.text] = f"<{item.entity_type}_{used + 1}>"
+            # Numbers are never reused, even after a value is unticked, so an
+            # old placeholder in the chat can't restore to a different value.
+            COUNTERS[item.entity_type] = COUNTERS.get(item.entity_type, 0) + 1
+            bucket[item.text] = f"<{item.entity_type}_{COUNTERS[item.entity_type]}>"
 
     # Pass 2: replace using the codebook.
     anonymized = ANONYMIZER.anonymize(
@@ -517,8 +552,25 @@ def detect_and_mask(text, req):
     for item in anonymized.items:
         counts[item.entity_type] = counts.get(item.entity_type, 0) + 1
     new_values = sum(len(v) for v in CODEBOOK.values()) - before
-    values = [(item.text, CODEBOOK[item.entity_type][item.text]) for item in resolved.items]
-    return anonymized.text, counts, values, new_values
+    ordered = sorted(resolved.items, key=lambda i: i.start)
+    values = [(item.text, CODEBOOK[item.entity_type][item.text]) for item in ordered]
+    types = [item.entity_type for item in ordered]
+    return anonymized.text, counts, values, new_values, types
+
+
+def summarize_detections(values, types):
+    """One row per distinct value for the panel's review list, in reading order.
+
+    Real values are included: this goes only to the panel (an app-only tool
+    result), never into anything Claude reads.
+    """
+    rows = {}
+    for (value, tag), etype in zip(values, types):
+        k = _key(value)
+        if k not in rows:
+            rows[k] = {"value": re.sub(r"\s+", " ", value).strip(), "tag": tag, "type": etype, "count": 0}
+        rows[k]["count"] += 1
+    return list(rows.values())
 
 
 TAG_RE = re.compile(r"<([A-Z_]+)_(\d+)>")
@@ -579,14 +631,27 @@ def op_doc_info(req):
     return {"name": doc["name"], "pages": doc["pages"], "verified": doc["verified"]}
 
 
+def features():
+    from models import STATUS
+    from pdf_redact import ocr_available
+
+    return {"ocr": ocr_available(), "gliner": STATUS["gliner"], "arabic": STATUS["arabic"]}
+
+
 def op_reset(_req):
+    from pdf_redact import clear_ocr_cache
+
     CODEBOOK.clear()
+    KEEP.clear()
+    COUNTERS.clear()
+    clear_ocr_cache()
     DOCS.clear()
     return {"values_held": 0}
 
 
 OPS = {
-    "ping": lambda r: {"ready": True, "default_entities": DEFAULT_ENTITIES, "optional_entities": OPTIONAL_ENTITIES},
+    "ping": lambda r: {"ready": True, "default_entities": DEFAULT_ENTITIES, "optional_entities": OPTIONAL_ENTITIES,
+                       "features": features()},
     "redact": op_redact,
     "restore": op_restore,
     "stats": op_stats,

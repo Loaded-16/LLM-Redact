@@ -2,6 +2,8 @@
 
 A private redaction panel that opens inside your Claude Desktop chat. Paste text or drop a file and it's redacted on your Mac with [Microsoft Presidio](https://microsoft.github.io/presidio/). You check the result, and only then does anything reach the chat. PDFs are redacted in place, keeping their layout, so Claude can read the real document without seeing the sensitive parts. Claude's replies can be turned back into real names inside the panel, and that never goes back to Claude.
 
+> **This is the `suggestions` branch.** It adds a review step, optional OCR for scanned PDFs, a "flatten pages" option, and optional AI models (GLiNER for names, an Arabic-script model). See [What's new on this branch](#whats-new-on-this-branch). The stable version is on `main`.
+
 Built for Lebanese and Gulf work: it knows common Lebanese and Arab names, Lebanese and Gulf phone formats, IBANs in any spelling, and leaves LBP and USD amounts readable.
 
 ## How it works
@@ -58,6 +60,21 @@ Setup does three things:
 2. Runs a self-check.
 3. Asks before adding the server to Claude Desktop's config. Your config is backed up first, and your other servers are left alone.
 
+### Optional add-ons
+
+Add any of these flags to the setup command. They're remembered, so a plain `bash setup.sh` later keeps them.
+
+| Flag | What it adds | Download |
+|---|---|---|
+| `--ocr` | Redacts **scanned PDFs**: reads the page picture, finds the details, and blanks those pixels | about 80 MB |
+| `--gliner` | Uses the **GLiNER** AI model to find names instead of spaCy's. It's better with unusual and non-English names, and makes fewer false hits | about 1.5 GB (includes PyTorch) |
+| `--arabic` | Adds an **Arabic-script** PII model (names, addresses, IDs written in Arabic) | about 3 GB (includes PyTorch) |
+| `--basic` | Switches all add-ons off again | |
+
+For example, `bash setup.sh --ocr --gliner`. The panel's status pill shows which add-ons are active (for example "Presidio ready · local · GLiNER · OCR").
+
+Models are downloaded once during setup and then load from your Mac only, with no internet use while redacting. If an add-on fails to load, the redactor keeps working without it, and setup's self-check tells you.
+
 ### 4. Restart Claude Desktop
 
 Quit it fully with **Cmd+Q**, then reopen it.
@@ -70,10 +87,15 @@ Quit it fully with **Cmd+Q**, then reopen it.
    - Add client, brand or project names to always hide.
    - Switch on places, dates, nationalities or links.
    - Tick **Remove photos and images from PDFs**.
-4. Press **Redact** and check the result.
+   - Tick **Flatten PDF pages into pictures** for the safest output. The redacted file keeps no text layer at all. Claude still sees each page as an image, plus the redacted text.
+4. Press **Redact**, then go through **Review what's hidden**: one row per hidden value, with its type and placeholder.
+   - **Untick** anything that should stay visible, like a shop name taken for a person. It stays visible for the rest of the session.
+   - **Add** anything it missed in the box below the list.
+   - Press **Apply changes** to redact again with your corrections.
+5. Check the result.
    - **Text, Word, PowerPoint and Excel:** you get an editable text version. Fix anything, then press **Send to chat**.
    - **PDFs:** the PDF itself is redacted. The real text under each name or number is deleted, and a grey box with its placeholder is drawn in its place. Flip through the pages, then press **Send redacted PDF to chat**. Claude reads the redacted copy straight from the panel. **Send as text instead** is also available.
-5. When Claude replies, paste the reply into **Restore Claude's reply** to see the real names. This stays in the panel.
+6. When Claude replies, paste the reply into **Restore Claude's reply** to see the real names. This stays in the panel.
 
 The same value always gets the same placeholder (`<PERSON_1>`) for as long as Claude Desktop stays open, across messages and chats. **Forget all** clears the codebook and the cached PDFs. Quitting Claude Desktop also clears the codebook, so restore any replies before you quit.
 
@@ -103,12 +125,24 @@ The same value always gets the same placeholder (`<PERSON_1>`) for as long as Cl
 - **Detection is not perfect.** Rare names can slip through, so always check the preview before sending.
 - **Arabic script:** only first names from the built-in list are caught, not surnames. Add those under "Always hide these words".
 - **Unlabelled account numbers** of 10 digits or fewer in a table cell look like balances and are not hidden. Add them under "Always hide these words".
-- **Scanned PDFs** (images of text) are not supported.
+- **Scanned PDFs** need the `--ocr` add-on. Without it you get a message telling you to install it. OCR is less exact than real text, so boxes on scanned pages are padded and may cover a letter of the word next to them. OCR reads English and Latin script best.
 - **Text inside images is not hidden.** This covers photos, logos, signatures and screenshots. Use "Remove photos and images from PDFs" when needed.
 - **Hidden spots are cleared too:** redacted PDFs lose their metadata, comments, links, bookmarks and attachments.
 - **Every redacted PDF is re-read** before it can be sent. If a detected value is still readable, the PDF is blocked and only the text version is offered.
 - **Redacted PDFs (never your originals) are cached** in `~/Library/Caches/presidio-redactor`, in files only your Mac user can read. This lets Claude still read them if the engine restarts. They're deleted after 24 hours, beyond the newest 8, and on **Forget all**.
 - **Each redaction handles about 100 pages** of text at most.
+
+## What's new on this branch
+
+- **Review step:** one row per hidden value. Untick false hits, add misses, then Apply. Unticked values stay visible for the session, and adding one again hides it. Placeholder numbers are never reused, so an old `<CUSTOM_1>` in the chat can't restore to a different word.
+- **OCR for scanned PDFs** (`--ocr`): finds details in page pictures and blanks those pixels. Each redacted page is read back with OCR to check nothing detected is still legible.
+- **Flatten pages:** turns every page into a picture after redaction, so the file keeps no text layer, fonts or hidden objects.
+- **GLiNER** (`--gliner`): swaps spaCy's name finder for a newer AI model, through Presidio's built-in GLiNER support. The Lebanese name list, IBAN, account and amount rules all stay on top.
+- **Arabic model** (`--arabic`): runs only on Arabic-script passages and maps its findings to the same placeholders. Amounts, currencies and dates it labels are ignored.
+
+**Tested so far:**
+- **Fully tested:** the review step, OCR and flatten.
+- **Wiring only:** GLiNER and the Arabic model were tested with stand-in models, because the real models couldn't be downloaded in the environment where this was built. Their accuracy on your documents is not tested yet. Run setup with the flag, and the self-check confirms the model loads.
 
 ## Update
 
@@ -135,6 +169,8 @@ Then quit and reopen Claude Desktop, and delete the folder.
 - **No panel appears:** fully quit Claude Desktop (Cmd+Q) and reopen it. Then check **Settings ▸ Developer**: `presidio-redactor` should show as running.
 - **"Presidio not running" in the panel:** run `bash setup.sh` again from this folder.
 - **"Python 3.10 to 3.13 not found":** install Python 3.13 from python.org, open a new Terminal window, and run setup again.
+- **"This PDF is scanned":** run `bash setup.sh --ocr`, then restart Claude Desktop.
+- **An add-on doesn't show in the status pill:** run setup again with its flag. The self-check says why it failed to load (usually an interrupted download).
 - **"no longer available" when Claude reads a PDF:** the cached copy expired or was cleared. Redact the file again.
 - **Logs:** `~/Library/Logs/Claude/mcp-server-presidio-redactor.log`
 
@@ -146,7 +182,8 @@ dist/panel.html        the in-chat panel, one self-contained file
 worker/worker.py       Presidio engine: recognizers, codebook, file reading, document cache
 worker/names.py        Lebanese and Arab name detection
 worker/finance.py      IBANs, account numbers, long numbers vs. money amounts
-worker/pdf_redact.py   in-place PDF redaction and leak check (PyMuPDF)
+worker/pdf_redact.py   in-place PDF redaction, OCR for scanned pages, flattening, leak check
+worker/models.py       optional GLiNER and Arabic models
 src/                   source for the server and the panel
 scripts/               build script and the setup self-check
 tests/                 worker, server and browser tests
@@ -165,10 +202,16 @@ npm run test:server    # MCP tools, visibility, leak check on everything Claude 
 npm run test:ui        # the panel in headless Chromium (needs a Chromium; set CHROME_PATH)
 ```
 
+The OCR tests need `pip install -r requirements-ocr.txt`. The GLiNER test uses a stand-in model from `tests/stubs/`, so no download is needed.
+
+```
+```
+
 Rebuild `dist/` and commit it whenever `src/` changes, because setup uses the built files.
 
 ## Credits and licence
 
 - **Built on:** [Microsoft Presidio](https://github.com/microsoft/presidio) (MIT), [spaCy](https://spacy.io) (MIT), the [MCP Apps SDK](https://github.com/modelcontextprotocol/ext-apps) (MIT) and [PyMuPDF](https://pymupdf.readthedocs.io) (AGPL-3.0).
+- **Optional add-ons:** [RapidOCR](https://github.com/RapidAI/RapidOCR) (Apache-2.0), [GLiNER](https://github.com/urchade/GLiNER) (Apache-2.0) with [knowledgator/gliner-pii-base-v1.0](https://huggingface.co/knowledgator/gliner-pii-base-v1.0), and [OpenMed Arabic PII](https://huggingface.co/OpenMed/OpenMed-PII-Arabic-BigMed-Large-560M-v1) (Apache-2.0). Check each model's licence before using it at work.
 - **Licence:** because of PyMuPDF's AGPL licence, keep this repository private, or release it under the AGPL, if you share it.
 - **Author:** Jad Chidiac. Personal project, not affiliated with Microsoft or Anthropic.

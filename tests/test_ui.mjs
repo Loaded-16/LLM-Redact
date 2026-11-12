@@ -49,7 +49,7 @@ z = zipfile.ZipFile(sys.argv[1], "a", zipfile.ZIP_STORED); z.writestr("word/medi
 const SECRETS = [
   "Rami Haddad", "rami.haddad@acme.com", "03 123 456", "Sara Khoury", "Najjar",
   "Maya Fares", "maya@talents.me", "456 789", "Omar Nassar",
-  "Maya Joseph", "Karim Aoun", "96171234567", "Lea Antoine", "0012345678901", "Elie Saab", "Nadine Abou Saab",
+  "Maya Joseph", "Karim Aoun", "96171234567", "Lea Antoine", "0012345678901", "Elie Saab", "Nadine Abou Saab", "Beirut",
 ];
 
 async function main() {
@@ -103,7 +103,7 @@ async function main() {
   await f.locator("#input").fill(
     "Rami Haddad (rami.haddad@acme.com, 03 123 456) wants Sara Khoury on the Najjar shoot in Beirut. Budget 70 000 000 LBP.",
   );
-  await f.locator("summary").click();
+  await f.locator("summary", { hasText: "What to hide" }).click();
   await f.locator("#terms").fill("Najjar");
   await f.locator("#redact").click();
   await f.locator("#reviewStep:not(.hidden)").waitFor();
@@ -114,6 +114,26 @@ async function main() {
   check("shows what was hidden", chips.some((c) => c.startsWith("People's names: 2")) && chips.some((c) => c.startsWith("Your words: 1")), chips);
   await page.screenshot({ path: path.join(SHOTS, "panel-light.png"), fullPage: true });
 
+  // Review: untick a false hit, add a miss, apply
+  const rowTexts = await f.locator("#reviewList .val").allTextContents();
+  check("review list shows each hidden value", rowTexts.includes("Rami Haddad") && rowTexts.includes("Najjar"), rowTexts);
+  await f.locator("#reviewList label", { hasText: "Najjar" }).locator("input").uncheck();
+  await f.locator("#addTerm").fill("Beirut");
+  await f.locator("#addBtn").click();
+  check("Apply is enabled after changes", !(await f.locator("#apply").isDisabled()));
+  await page.screenshot({ path: path.join(SHOTS, "panel-review.png"), fullPage: true });
+  await f.locator("#apply").click();
+  await f.locator("#redactMsg.ok").waitFor();
+  const reviewed = await f.locator("#masked").inputValue();
+  check("review applied: unticked word visible, added word hidden",
+    reviewed.includes("Najjar") && !reviewed.includes("Beirut") && !reviewed.includes("Rami"), reviewed);
+  // put it back the way the rest of the test expects
+  await f.locator("#reviewList label", { hasText: "Najjar" }).locator("input").check();
+  await f.locator("#apply").click();
+  await f.locator("#redactMsg.ok").waitFor();
+  const masked2 = await f.locator("#masked").inputValue();
+  check("re-ticking hides it again", !masked2.includes("Najjar"), masked2);
+
   // Send to chat
   await f.locator("#send").click();
   await f.locator("#sendMsg.ok").waitFor();
@@ -121,10 +141,12 @@ async function main() {
   check("Send posts one user message to the chat", sent.length === 1 && sent[0].role === "user", sent);
   const sentText = sent[0]?.content?.[0]?.text ?? "";
   modelReadable.push(...(sent[0]?.content ?? []));
-  check("message has the placeholder instruction + masked text", sentText.includes("keep them exactly as written") && sentText.endsWith(masked.trim()), sentText);
+  const maskedNow = await f.locator("#masked").inputValue();
+  check("message has the placeholder instruction + masked text", sentText.includes("keep them exactly as written") && sentText.endsWith(maskedNow.trim()), sentText);
 
   // Restore Claude's reply locally
-  await f.locator("#reply").fill("Great, I'll draft a note from <PERSON_1> to <PERSON_2> about <CUSTOM_1>. <PERSON_7>?");
+  const najjarTag = (await f.locator("#reviewList label", { hasText: "Najjar" }).locator(".meta").textContent()).match(/<CUSTOM_\d+>/)[0];
+  await f.locator("#reply").fill(`Great, I'll draft a note from <PERSON_1> to <PERSON_2> about ${najjarTag}. <PERSON_7>?`);
   await f.locator("#restore").click();
   await f.locator("#restoreWrap:not(.hidden)").waitFor();
   const restored = await f.locator("#restored").inputValue();

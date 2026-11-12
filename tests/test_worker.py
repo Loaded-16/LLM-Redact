@@ -338,7 +338,7 @@ def main():
     from make_test_pdf import build_statement
     stmt = os.path.join(tempfile.mkdtemp(), "statement.pdf")
     build_statement(stmt)
-    wk.CODEBOOK.clear()
+    wk.op_reset({})
     res = wk.op_redact({"file_name": "statement.pdf", "file_b64": b64(open(stmt, "rb").read())})
     sdoc = wk.DOCS.get(res["pdf"]["doc_id"])
     layer = " ".join(p.get_text() for p in pymupdf.open(stream=sdoc["pdf"], filetype="pdf"))
@@ -385,6 +385,97 @@ def main():
     check("pdf matching: no match across table cells", not value_pattern("50.25").search("5\n0.25") and not value_pattern("50.25").search("5 0.25\n"))
     check("pdf matching: still follows a value over a line break between words",
           bool(value_pattern("LB62 0999 0001").search("iban:lb62 0999\n0001 x")))
+
+    # --- review step: keep a false hit visible, add a miss ---
+    w.call("reset")
+    r = w.call("redact", text="Order from Sami Market for Rami Haddad, code ZX-77.")["result"]
+    rows = {d["value"]: d for d in r["detections"]}
+    check("review: detections listed with type, tag and count",
+          rows.get("Rami Haddad", {}).get("tag") == "<PERSON_2>" and ("Sami Market" in rows or "Sami" in rows), r["detections"])
+    shop = "Sami Market" if "Sami Market" in rows else "Sami"
+    r = w.call("redact", text="Order from Sami Market for Rami Haddad, code ZX-77.", keep=[shop], custom_terms=["ZX-77"])["result"]
+    check("review: unticked value stays visible, added value is hidden",
+          "Sami" in r["masked"] and "Rami" not in r["masked"] and "ZX-77" not in r["masked"] and "<CUSTOM_1>" in r["masked"], r["masked"])
+    tags = re.findall(r"<CUSTOM_\d+>", r["masked"])
+    r2 = w.call("redact", text="New code QW-12.", custom_terms=["QW-12"])["result"]
+    check("review: placeholder numbers are never reused", re.findall(r"<CUSTOM_\d+>", r2["masked"]) == ["<CUSTOM_2>"] and tags == ["<CUSTOM_1>"], (tags, r2["masked"]))
+    r = w.call("redact", text="Later, Sami Market called again.")["result"]
+    check("review: a kept value stays visible in later messages", "Sami Market" in r["masked"] or "Sami" in r["masked"], r["masked"])
+    r = w.call("redact", text="Ask Sami Market.", custom_terms=[shop])["result"]
+    check("review: adding a kept value again hides it", "Sami" not in r["masked"], r["masked"])
+    w.call("reset")
+    r = w.call("redact", text="Order from Sami Market for Rami Haddad.")["result"]
+    check("review: Forget all clears the kept list", "Rami" not in r["masked"])
+
+    # --- flatten: the file keeps no text layer ---
+    wk.op_reset({})
+    res = wk.op_redact({"file_name": "brief.pdf", "file_b64": b64(open(src, "rb").read()), "flatten": True})
+    fdoc = wk.DOCS.get(res["pdf"]["doc_id"])
+    flat = pymupdf.open(stream=fdoc["pdf"], filetype="pdf")
+    check("flatten: verified, no text layer, same page count",
+          res["pdf"]["verified"] and res["pdf"]["flattened"] and not "".join(p.get_text() for p in flat).strip()
+          and flat.page_count == pymupdf.open(src).page_count, res["pdf"])
+    check("flatten: Claude still gets redacted text", "<PERSON_1>" in " ".join(fdoc["masked_pages"]) and "Rami" not in " ".join(fdoc["masked_pages"]))
+
+    # --- OCR: a scanned statement ---
+    from pdf_redact import ocr_available
+    if ocr_available():
+        scan_path = os.path.join(tempfile.mkdtemp(), "scan.pdf")
+        srcdoc, scan = pymupdf.open(stmt), pymupdf.open()
+        for p in srcdoc:
+            pg = scan.new_page(width=p.rect.width, height=p.rect.height)
+            pg.insert_image(pg.rect, stream=p.get_pixmap(dpi=150).tobytes("png"))
+        scan.save(scan_path)
+        wk.op_reset({})
+        res = wk.op_redact({"file_name": "scan.pdf", "file_b64": b64(open(scan_path, "rb").read())})
+        sdoc = wk.DOCS.get(res["pdf"]["doc_id"])
+        check("ocr: scanned PDF redacted and verified", res["pdf"]["verified"] and res["pdf"]["ocr_pages"] == 1, res["pdf"])
+        from pdf_redact import _ocr_page
+        reread = " ".join(t for t, _ in _ocr_page(pymupdf.open(stream=sdoc["pdf"], filetype="pdf")[0]))
+        compact = re.sub(r"\s", "", reread).lower()
+        check("ocr: IBANs, account and name gone from the picture",
+              "0999" not in reread and "10167519" not in compact and "1234567890" not in compact and "maya" not in compact, reread[:300])
+        check("ocr: amounts still readable in the picture",
+              all(a in compact for a in ["1,250.00", "11750000", "150000000", "81126541"]), reread[:400])
+    else:
+        check("ocr: add-on installed for tests", False, "pip install -r requirements-ocr.txt")
+
+    # --- optional models: fall back cleanly when missing ---
+    import models
+    check("models: off unless switched on", models.STATUS == {"gliner": "off", "arabic": "off"}, models.STATUS)
+    os.environ["REDACTOR_ARABIC"] = "1"
+    def broken():
+        raise OSError("model not downloaded")
+    from presidio_analyzer import AnalyzerEngine
+    check("models: a missing Arabic model is skipped, not fatal",
+          models.add_arabic(AnalyzerEngine(), pipeline_factory=broken) is False and models.STATUS["arabic"] == "unavailable")
+    fake = lambda t: [{"entity_group": "FIRSTNAME", "start": t.find("وسيم"), "end": t.find("وسيم") + 4, "score": 0.97},
+                      {"entity_group": "AMOUNT", "start": 0, "end": 3, "score": 0.99}] if "وسيم" in t else []
+    rec = models.ArabicPiiRecognizer(fake)
+    txt = "Meeting notes: اتصل بوسيم غداً, budget 500 USD"
+    hits = rec.analyze(txt, ["PERSON"])
+    check("models: Arabic hits mapped to the whole text, amounts ignored",
+          len(hits) == 1 and txt[hits[0].start:hits[0].end] == "وسيم" and hits[0].entity_type == "PERSON", [(h.entity_type, txt[h.start:h.end]) for h in hits])
+    check("models: label mapping",
+          [models.map_arabic_label(x) for x in ["B-FIRSTNAME", "LASTNAME", "IBAN", "PHONE", "AMOUNT", "DATE", "CITY", "USERNAME"]]
+          == ["PERSON", "PERSON", "IBAN_CODE", "PHONE_NUMBER", None, None, "LOCATION", None])
+    os.environ.pop("REDACTOR_ARABIC")
+
+    # GLiNER with a stand-in model, in a fresh engine
+    env = dict(os.environ, REDACTOR_NER="gliner", PYTHONPATH=os.path.join(ROOT, "tests", "stubs"))
+    probe = subprocess.run([sys.executable, "-c", (
+        "import sys, io, contextlib, json; sys.path.insert(0, 'worker')\n"
+        "with contextlib.redirect_stdout(io.StringIO()):\n    import worker\n"
+        "names = [r.name for r in worker.ANALYZER.registry.recognizers]\n"
+        "m = worker.op_redact({'text': 'Meet Xavier Qubain and Rami Haddad. IBAN LB62 0999 0000 0001 0019 0122 9114, 70 000 000 LBP'})['masked']\n"
+        "print(json.dumps([worker.features()['gliner'], 'SpacyRecognizer' in names, m]))")],
+        cwd=ROOT, env=env, capture_output=True, text=True)
+    try:
+        status, spacy_left, gm = json.loads(probe.stdout.strip().splitlines()[-1])
+    except Exception:
+        status, spacy_left, gm = None, None, probe.stderr[-400:]
+    check("gliner: replaces spaCy and finds names", status == "on" and spacy_left is False
+          and gm.startswith("Meet <PERSON_1> and <PERSON_2>.") and "<IBAN_CODE_1>" in gm and "70 000 000 LBP" in gm, gm)
 
     # --- stats / reset ---
     held = w.call("stats")["result"]["values_held"]

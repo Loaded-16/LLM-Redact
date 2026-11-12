@@ -35,6 +35,8 @@ const SEND_HEADER =
 
 const $ = (id) => document.getElementById(id);
 let file = null; // { name, b64 }
+let lastInput = null; // what was redacted last, so the review can re-run it
+const review = { keep: new Set(), add: new Set() };
 let pdf = null; // { doc_id, name, pages, verified, page }
 let ready = false;
 
@@ -156,7 +158,15 @@ async function redact() {
   $("redact").disabled = true;
   setMsg("redactMsg", "Redacting on your computer…");
   try {
-    const args = { entities: selectedEntities(), custom_terms: customTerms(), remove_images: $("removeImages").checked };
+    const args = {
+      entities: selectedEntities(),
+      // Unticking in the review wins over the "always hide" box.
+      custom_terms: [...new Set([...customTerms(), ...review.add])]
+        .filter((t) => ![...review.keep].some((k) => k.toLowerCase() === t.toLowerCase())),
+      keep: [...review.keep],
+      remove_images: $("removeImages").checked,
+      flatten: $("flatten").checked,
+    };
     if (file) {
       // Send the file in chunks: one stdio message is capped at 10 MB.
       const uploadId = newId();
@@ -173,8 +183,10 @@ async function redact() {
       args.text = $("input").value;
     }
     const r = await call("redact_content", args);
+    lastInput = file ? { file } : { text: args.text };
 
     $("masked").value = r.masked;
+    renderReview(r.detections || []);
     const chips = $("chips");
     chips.innerHTML = "";
     const entries = Object.entries(r.counts || {});
@@ -201,6 +213,86 @@ async function redact() {
   } finally {
     updateRedactButton();
   }
+}
+
+// ---------- review: untick false hits, add misses, re-run ----------
+
+function renderReview(rows) {
+  const list = $("reviewList");
+  list.innerHTML = "";
+  const all = [...rows];
+  for (const v of review.add) {
+    if (!rows.some((r) => r.value.toLowerCase() === v.toLowerCase())) all.push({ value: v, type: "CUSTOM", tag: "", count: 0, pending: true });
+  }
+  for (const v of review.keep) {
+    if (!rows.some((r) => r.value.toLowerCase() === v.toLowerCase())) all.push({ value: v, type: "", tag: "", count: 0, kept: true });
+  }
+  $("reviewSummary").textContent = `Review what's hidden (${rows.length})`;
+  for (const row of all) {
+    const label = document.createElement("label");
+    const cb = document.createElement("input");
+    cb.type = "checkbox";
+    cb.checked = !row.kept;
+    const val = document.createElement("span");
+    val.className = "val" + (row.kept ? " off" : "") + (row.pending ? " added" : "");
+    val.textContent = row.value;
+    val.title = row.value;
+    const meta = document.createElement("span");
+    meta.className = "meta";
+    meta.textContent = row.kept ? "kept visible" : row.pending ? "will be added" :
+      `${LABELS[row.type] || row.type} · ${row.tag}${row.count > 1 ? ` · ×${row.count}` : ""}`;
+    cb.addEventListener("change", () => {
+      const key = row.value;
+      if (row.pending) {
+        if (!cb.checked) review.add.delete(key);
+      } else if (cb.checked) {
+        review.keep.delete(key);
+      } else {
+        review.keep.add(key);
+      }
+      val.classList.toggle("off", !cb.checked);
+      $("apply").disabled = false;
+    });
+    label.append(cb, val, meta);
+    list.appendChild(label);
+  }
+  if (!all.length) {
+    const empty = document.createElement("p");
+    empty.className = "hint";
+    empty.style.padding = "8px";
+    empty.textContent = "Nothing detected. Add anything that should be hidden below.";
+    list.appendChild(empty);
+  }
+  $("apply").disabled = true;
+}
+
+function addMissed() {
+  const v = $("addTerm").value.trim();
+  if (!v) return;
+  review.add.add(v);
+  review.keep.delete(v);
+  $("addTerm").value = "";
+  $("apply").disabled = false;
+  const label = document.createElement("label");
+  const cb = document.createElement("input");
+  cb.type = "checkbox";
+  cb.checked = true;
+  cb.addEventListener("change", () => { if (!cb.checked) review.add.delete(v); else review.add.add(v); });
+  const val = document.createElement("span");
+  val.className = "val added";
+  val.textContent = v;
+  const meta = document.createElement("span");
+  meta.className = "meta";
+  meta.textContent = "will be added";
+  label.append(cb, val, meta);
+  $("reviewList").prepend(label);
+}
+
+async function applyReview() {
+  if (!lastInput) return;
+  if (!lastInput.file) $("input").value = lastInput.text;
+  else file = lastInput.file;
+  await redact();
 }
 
 // ---------- PDF preview ----------
@@ -307,6 +399,8 @@ async function resetCodebook() {
   btn.textContent = "Forget all";
   try {
     await call("reset_codebook");
+    review.keep.clear();
+    review.add.clear();
     setHeld(0);
     setMsg("restoreMsg", "Forgotten. Placeholders already in the chat can no longer be restored.", "ok");
   } catch (e) {
@@ -329,6 +423,9 @@ function wire() {
   $("redact").addEventListener("click", redact);
   $("send").addEventListener("click", () => send(false));
   $("sendText").addEventListener("click", () => send(true));
+  $("apply").addEventListener("click", applyReview);
+  $("addBtn").addEventListener("click", addMissed);
+  $("addTerm").addEventListener("keydown", (e) => { if (e.key === "Enter") { e.preventDefault(); addMissed(); } });
   $("prevPage").addEventListener("click", () => loadPage(pdf.page - 1));
   $("nextPage").addEventListener("click", () => loadPage(pdf.page + 1));
   $("copyMasked").addEventListener("click", () => copy($("masked").value, "sendMsg"));
@@ -365,7 +462,9 @@ async function init() {
   try {
     const s = await call("redactor_status");
     ready = true;
-    setStatus("Presidio ready · local", "ok");
+    const f = s.features || {};
+    const extras = [f.gliner === "on" && "GLiNER", f.arabic === "on" && "Arabic", f.ocr && "OCR"].filter(Boolean);
+    setStatus(`Presidio ready · local${extras.length ? " · " + extras.join(" · ") : ""}`, "ok");
     setHeld(s.values_held ?? 0);
   } catch (e) {
     setStatus("Presidio not running", "err");
