@@ -1,0 +1,128 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 600" width="1200" height="600" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif">
+  <title>How LLM-Redact works</title>
+  <style>
+    .bg{fill:#ffffff}.zone{fill:#f4f6f8;stroke:#d0d7de}.zone2{fill:#f3f0ff;stroke:#d8cff5}
+    .card{fill:#ffffff;stroke:#d0d7de}.t{fill:#1f2328}.m{fill:#59636e}.h{fill:#1f2328;font-weight:600}
+    .z{fill:#59636e;font-weight:600;letter-spacing:.08em}
+    .pii{fill:#ffe1de}.piit{fill:#a40e26;font-weight:600}
+    .ph{fill:#ddf4ff}.pht{fill:#0550ae;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-weight:600}
+    .ok{fill:#dafbe1}.okt{fill:#116329;font-weight:600}
+    .num{fill:#0969da}.numt{fill:#ffffff;font-weight:700}
+    .arr{stroke:#8c959f;stroke-width:2;fill:none}.arrh{fill:#8c959f}
+    .row{fill:#f6f8fa;stroke:#d0d7de}.chk{fill:#1a7f37}.btn{fill:#1f2328}.btnt{fill:#ffffff;font-weight:600}
+    @media (prefers-color-scheme: dark){
+      .bg{fill:#0d1117}.zone{fill:#161b22;stroke:#30363d}.zone2{fill:#1c1830;stroke:#3d3466}
+      .card{fill:#0d1117;stroke:#30363d}.t,.h{fill:#e6edf3}.m,.z{fill:#9198a1}
+      .pii{fill:#4b1d22}.piit{fill:#ffa198}.ph{fill:#0c2d4d}.pht{fill:#79c0ff}
+      .ok{fill:#12361e}.okt{fill:#7ee787}.num{fill:#1f6feb}
+      .arr{stroke:#6e7681}.arrh{fill:#6e7681}.row{fill:#161b22;stroke:#30363d}.chk{fill:#3fb950}
+      .btn{fill:#e6edf3}.btnt{fill:#0d1117}
+    }
+  </style>
+  <rect class="bg" width="1200" height="600"/>
+
+  <!-- zones -->
+  <rect class="zone" x="16" y="16" width="800" height="568" rx="14"/>
+  <text class="z" x="36" y="44" font-size="12">ON YOUR MAC · OFFLINE</text>
+  <rect class="zone2" x="840" y="16" width="344" height="568" rx="14"/>
+  <text class="z" x="860" y="44" font-size="12">CLAUDE</text>
+
+  <!-- 1. input -->
+  <rect class="card" x="36" y="60" width="360" height="232" rx="10"/>
+  <circle class="num" cx="60" cy="86" r="12"/><text class="numt" x="60" y="91" font-size="13" text-anchor="middle">1</text>
+  <text class="h" x="80" y="91" font-size="15">Paste text or drop a file</text>
+  <g font-size="14">
+    <text class="t" x="56" y="132">Please wire $2,500 to</text>
+    <rect class="pii" x="54" y="144" width="94" height="22" rx="4"/>
+    <text class="piit" x="58" y="160">Rami Haddad</text><text class="t" x="149" y="160">, IBAN</text>
+    <rect class="pii" x="54" y="172" width="268" height="22" rx="4"/>
+    <text class="piit" x="58" y="188">LB62 0999 0000 0001 0019 0122 9114</text>
+    <text class="t" x="56" y="216">and call him on</text>
+    <rect class="pii" x="164" y="200" width="78" height="22" rx="4"/>
+    <text class="piit" x="168" y="216">03 123 456</text><text class="t" x="244" y="216">.</text>
+  </g>
+  <text class="m" x="56" y="262" font-size="12">Text, PDF, Word, PowerPoint or Excel.</text>
+  <text class="m" x="56" y="278" font-size="12">Nothing has left your Mac yet.</text>
+
+  <!-- 2. review -->
+  <rect class="card" x="436" y="60" width="360" height="232" rx="10"/>
+  <circle class="num" cx="460" cy="86" r="12"/><text class="numt" x="460" y="91" font-size="13" text-anchor="middle">2</text>
+  <text class="h" x="480" y="91" font-size="15">Presidio redacts, you review</text>
+  <g font-size="13">
+    <rect class="row" x="456" y="110" width="320" height="34" rx="6"/>
+    <rect class="chk" x="468" y="119" width="16" height="16" rx="3"/><path d="M471 127l3 3 6-6" stroke="#fff" stroke-width="2" fill="none"/>
+    <text class="t" x="494" y="132">Rami Haddad</text><text class="pht" x="640" y="132">&lt;PERSON_1&gt;</text>
+    <rect class="row" x="456" y="150" width="320" height="34" rx="6"/>
+    <rect class="chk" x="468" y="159" width="16" height="16" rx="3"/><path d="M471 167l3 3 6-6" stroke="#fff" stroke-width="2" fill="none"/>
+    <text class="t" x="494" y="172">LB62 0999 …</text><text class="pht" x="640" y="172">&lt;IBAN_CODE_1&gt;</text>
+    <rect class="row" x="456" y="190" width="320" height="34" rx="6"/>
+    <rect class="chk" x="468" y="199" width="16" height="16" rx="3"/><path d="M471 207l3 3 6-6" stroke="#fff" stroke-width="2" fill="none"/>
+    <text class="t" x="494" y="212">03 123 456</text><text class="pht" x="640" y="212">&lt;LB_PHONE_1&gt;</text>
+  </g>
+  <text class="m" x="456" y="250" font-size="12">Untick false hits, add misses. $2,500 stays readable.</text>
+  <rect class="btn" x="456" y="258" width="140" height="26" rx="6"/>
+  <text class="btnt" x="526" y="275" font-size="12" text-anchor="middle">Send to chat</text>
+
+  <!-- 3. claude -->
+  <rect class="card" x="860" y="60" width="304" height="504" rx="10"/>
+  <circle class="num" cx="884" cy="86" r="12"/><text class="numt" x="884" y="91" font-size="13" text-anchor="middle">3</text>
+  <text class="h" x="904" y="91" font-size="15">Claude sees placeholders only</text>
+  <g font-size="14">
+    <text class="m" x="880" y="126" font-size="12">You</text>
+    <text class="t" x="880" y="148">Please wire $2,500 to</text>
+    <rect class="ph" x="878" y="156" width="86" height="22" rx="4"/><text class="pht" x="882" y="172" font-size="13">&lt;PERSON_1&gt;</text>
+    <text class="t" x="966" y="172">, IBAN</text>
+    <rect class="ph" x="878" y="184" width="108" height="22" rx="4"/><text class="pht" x="882" y="200" font-size="13">&lt;IBAN_CODE_1&gt;</text>
+    <text class="t" x="992" y="200">and call</text>
+    <text class="t" x="880" y="228">him on</text>
+    <rect class="ph" x="928" y="212" width="101" height="22" rx="4"/><text class="pht" x="932" y="228" font-size="13">&lt;LB_PHONE_1&gt;</text>
+    <text class="t" x="1030" y="228">.</text>
+
+    <text class="m" x="880" y="290" font-size="12">Claude</text>
+    <text class="t" x="880" y="312">Here's a note for the transfer:</text>
+    <text class="t" x="880" y="340">"Dear</text>
+    <rect class="ph" x="920" y="324" width="86" height="22" rx="4"/><text class="pht" x="924" y="340" font-size="13">&lt;PERSON_1&gt;</text>
+    <text class="t" x="1007" y="340">, $2,500</text>
+    <text class="t" x="880" y="368">has been sent to</text>
+    <rect class="ph" x="878" y="376" width="108" height="22" rx="4"/><text class="pht" x="882" y="392" font-size="13">&lt;IBAN_CODE_1&gt;</text>
+    <text class="t" x="987" y="392">."</text>
+  </g>
+  <text class="m" x="880" y="470" font-size="12">Same value, same placeholder,</text>
+  <text class="m" x="880" y="486" font-size="12">across messages and chats.</text>
+  <text class="m" x="880" y="514" font-size="12">PDFs arrive redacted in place,</text>
+  <text class="m" x="880" y="530" font-size="12">layout intact.</text>
+
+  <!-- 4. restore -->
+  <rect class="card" x="436" y="332" width="360" height="232" rx="10"/>
+  <circle class="num" cx="460" cy="358" r="12"/><text class="numt" x="460" y="363" font-size="13" text-anchor="middle">4</text>
+  <text class="h" x="480" y="363" font-size="15">Restore Claude's reply, locally</text>
+  <g font-size="14">
+    <text class="t" x="456" y="404">"Dear</text>
+    <rect class="ok" x="496" y="388" width="94" height="22" rx="4"/><text class="okt" x="500" y="404">Rami Haddad</text>
+    <text class="t" x="591" y="404">, $2,500 has been</text>
+    <text class="t" x="456" y="432">sent to</text>
+    <rect class="ok" x="454" y="440" width="268" height="22" rx="4"/>
+    <text class="okt" x="458" y="456">LB62 0999 0000 0001 0019 0122 9114</text>
+    <text class="t" x="723" y="456">."</text>
+  </g>
+  <text class="m" x="456" y="520" font-size="12">Real names come back only inside the panel.</text>
+  <text class="m" x="456" y="536" font-size="12">This step never goes back to Claude.</text>
+
+  <!-- 5. codebook -->
+  <rect class="card" x="36" y="332" width="360" height="232" rx="10"/>
+  <text class="h" x="56" y="363" font-size="15">Codebook, in memory only</text>
+  <g font-size="13">
+    <text class="pht" x="56" y="400">&lt;PERSON_1&gt;</text><text class="t" x="200" y="400">Rami Haddad</text>
+    <text class="pht" x="56" y="426">&lt;IBAN_CODE_1&gt;</text><text class="t" x="200" y="426">LB62 0999 …</text>
+    <text class="pht" x="56" y="452">&lt;LB_PHONE_1&gt;</text><text class="t" x="200" y="452">03 123 456</text>
+  </g>
+  <text class="m" x="56" y="504" font-size="12">Never written to disk. Cleared by "Forget all"</text>
+  <text class="m" x="56" y="520" font-size="12">or when Claude Desktop quits.</text>
+
+  <!-- arrows -->
+  <defs><marker id="a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path class="arrh" d="M0 0L10 5L0 10z"/></marker></defs>
+  <path class="arr" d="M398 176H432" marker-end="url(#a)"/>
+  <path class="arr" d="M798 176H856" marker-end="url(#a)"/>
+  <path class="arr" d="M858 448H800" marker-end="url(#a)"/>
+  <path class="arr" d="M398 448H432" marker-end="url(#a)" stroke-dasharray="4 4"/>
+</svg>
