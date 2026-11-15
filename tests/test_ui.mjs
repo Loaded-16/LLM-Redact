@@ -147,6 +147,7 @@ async function main() {
 
   // Restore Claude's reply locally
   const najjarTag = (await f.locator("#reviewList label", { hasText: "Najjar" }).locator(".meta").textContent()).match(/<CUSTOM_\d+>/)[0];
+  await f.locator("#restoreSummary").click(); // the restore step starts collapsed
   await f.locator("#reply").fill(`Great, I'll draft a note from <PERSON_1> to <PERSON_2> about ${najjarTag}. <PERSON_7>?`);
   await f.locator("#restore").click();
   await f.locator("#restoreWrap:not(.hidden)").waitFor();

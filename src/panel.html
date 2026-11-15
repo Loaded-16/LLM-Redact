@@ -87,7 +87,11 @@
   /* a chosen file replaces the text box */
   .step:has(#fileRow.show) #input, .step:has(#fileRow.show) #drop { display: none; }
   .step:has(#fileRow.show) #fileRow { margin-top: 0; }
-  #restoreStep { animation: rise 260ms var(--ease-out); }
+  #restoreStep { animation: rise 260ms var(--ease-out); margin-top: 0; font-size: 14px; }
+  .step-head { display: flex; width: 100%; justify-content: space-between; color: var(--text); }
+  .step-head h2 { margin: 0; }
+  .step-head::before { order: 2; }
+  details[open] > .step-head { margin-bottom: 10px; }
 
   /* drop zone */
   .drop { margin-top: 8px; border: 1.5px dashed var(--border); border-radius: var(--radius-sm); padding: 9px 12px; display: flex; align-items: center; justify-content: center; gap: 10px; color: var(--text2); font-size: 12.5px; cursor: pointer; transition: border-color 150ms ease, background-color 150ms ease, color 150ms ease; }
@@ -251,8 +255,8 @@
     <div id="sendMsg" class="msg"></div>
   </section>
 
-  <section class="step hidden" id="restoreStep">
-    <h2><span class="num">3</span>Restore Claude's reply</h2>
+  <details class="step hidden" id="restoreStep">
+    <summary class="step-head" id="restoreSummary"><h2><span class="num">3</span>Restore Claude's reply</h2></summary>
     <textarea id="reply" class="short" placeholder="Paste Claude's reply to see the real names. It stays here."></textarea>
     <div class="row"><button id="restore">Restore</button></div>
     <div id="restoreWrap" class="hidden">
@@ -260,7 +264,7 @@
       <div class="row"><button id="copyRestored" class="link">Copy</button></div>
     </div>
     <div id="restoreMsg" class="msg"></div>
-  </section>
+  </details>
 
   <div class="foot hidden" id="foot">
     <span id="held">Codebook: 0 hidden values in memory</span>

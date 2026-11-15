@@ -407,6 +407,7 @@ async function resetCodebook() {
     review.keep.clear();
     review.add.clear();
     setHeld(0);
+    $("restoreStep").open = true; // the confirmation lives in the restore step
     setMsg("restoreMsg", "Forgotten. Placeholders already in the chat can no longer be restored.", "ok");
   } catch (e) {
     setMsg("restoreMsg", e.message, "err");
