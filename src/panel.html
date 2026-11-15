@@ -81,9 +81,17 @@
   input[type=checkbox] { accent-color: var(--accent); width: 15px; height: 15px; margin: 0; flex: none; cursor: pointer; }
   label { cursor: pointer; }
 
+  textarea.short { min-height: 72px; }
+  .subhead { margin: 14px 0 0; color: var(--text2); font-size: 11.5px; font-weight: 600; text-transform: uppercase; letter-spacing: .04em; }
+  #apply:disabled { display: none; }
+  /* a chosen file replaces the text box */
+  .step:has(#fileRow.show) #input, .step:has(#fileRow.show) #drop { display: none; }
+  .step:has(#fileRow.show) #fileRow { margin-top: 0; }
+  #restoreStep { animation: rise 260ms var(--ease-out); }
+
   /* drop zone */
-  .drop { margin-top: 8px; border: 1.5px dashed var(--border); border-radius: var(--radius-sm); padding: 14px 12px; display: flex; align-items: center; justify-content: center; gap: 10px; color: var(--text2); font-size: 12.5px; cursor: pointer; transition: border-color 150ms ease, background-color 150ms ease, color 150ms ease; }
-  .drop svg { width: 18px; height: 18px; flex: none; color: var(--accent); }
+  .drop { margin-top: 8px; border: 1.5px dashed var(--border); border-radius: var(--radius-sm); padding: 9px 12px; display: flex; align-items: center; justify-content: center; gap: 10px; color: var(--text2); font-size: 12.5px; cursor: pointer; transition: border-color 150ms ease, background-color 150ms ease, color 150ms ease; }
+  .drop svg { width: 16px; height: 16px; flex: none; color: var(--accent); }
   .drop b { color: var(--text); font-weight: 500; }
   .drop small { display: block; font-size: 11.5px; opacity: .85; }
   .drop.over { border-color: var(--accent); color: var(--text); background: var(--accent-soft); }
@@ -134,7 +142,7 @@
   .msg.err { color: var(--danger); }
   .msg.ok { color: var(--fb-success); }
   .msg.ok::before { content: "✓"; font-weight: 700; }
-  .msg.err::before { content: "!"; font-weight: 700; display: inline-grid; place-items: center; width: 14px; height: 14px; border-radius: 50%; background: currentColor; color: var(--surface); font-size: 10px; flex: none; transform: translateY(2px); }
+  .msg.err::before { content: "⚠"; flex: none; }
   .hidden { display: none !important; }
 
   /* review list */
@@ -178,18 +186,18 @@
       <span class="mark" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l7 3v5c0 4.5-3 8.3-7 10-4-1.7-7-5.5-7-10V6z"/><path d="M9 12l2 2 4-4"/></svg></span>
       <div>
         <h1>Private redaction</h1>
-        <p class="sub">Runs on your computer. Nothing reaches the chat until you press Send.</p>
+        <p class="sub">Stays on your computer until you press Send.</p>
       </div>
     </div>
     <span id="status" class="pill">Starting Presidio…</span>
   </header>
 
   <section class="step">
-    <h2><span class="num">1</span>Paste text or add a file</h2>
+    <h2><span class="num">1</span>Add what you want to share</h2>
     <textarea id="input" placeholder="Paste a brief, an email, notes…"></textarea>
-    <div id="drop" class="drop" tabindex="0" role="button" aria-label="Drop a file here or click to choose. PDF, Word, PowerPoint, Excel or text, up to 10 MB">
+    <div id="drop" class="drop" tabindex="0" role="button" title="PDF, Word, PowerPoint, Excel or text, up to 10 MB" aria-label="Add a file: PDF, Word, PowerPoint, Excel or text, up to 10 MB">
       <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 15V4"/><path d="M7 9l5-5 5 5"/><path d="M4 15v3a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-3"/></svg>
-      <span><b>Drop a file here</b> or click to choose<small>PDF, Word, PowerPoint, Excel, text · up to 10 MB</small></span>
+      <span>or <b>add a file</b></span>
     </div>
     <input id="picker" type="file" class="hidden" accept=".pdf,.docx,.pptx,.xlsx,.txt,.md,.csv,.tsv,.json,.html,.htm,.rtf,.log">
     <div id="fileRow" class="file"><span id="fileName"></span><button id="clearFile" class="link">Remove</button></div>
@@ -197,11 +205,12 @@
     <details>
       <summary>What to hide</summary>
       <div class="opts" id="opts"></div>
-      <label for="terms" class="field-label">Always hide these words (client, brand or project names), comma separated</label>
-      <input id="terms" type="text" placeholder="e.g. Najjar, Project Falcon">
-      <label class="check"><input type="checkbox" id="removeImages"> Remove photos and images from PDFs (logos, signatures)</label>
-      <label class="check"><input type="checkbox" id="flatten"> Flatten PDF pages into pictures (safest: the file keeps no text layer at all)</label>
-      <p class="hint">English text works best. Arabic-script surnames are not detected, so add them above.</p>
+      <label for="terms" class="field-label">Always hide these words</label>
+      <input id="terms" type="text" placeholder="Client or project names, comma separated">
+      <p class="hint">Arabic-script surnames aren't detected, so add them here.</p>
+      <p class="subhead">For PDFs</p>
+      <label class="check"><input type="checkbox" id="removeImages"> Remove photos and logos</label>
+      <label class="check"><input type="checkbox" id="flatten"> Flatten pages into pictures (safest)</label>
     </details>
 
     <div class="row"><button id="redact" class="primary" disabled>Redact</button></div>
@@ -211,12 +220,11 @@
   <section class="step hidden" id="reviewStep">
     <h2><span class="num">2</span>Check it, then send</h2>
     <div class="chips" id="chips"></div>
-    <details id="reviewBox" open>
+    <details id="reviewBox">
       <summary id="reviewSummary">Review what's hidden</summary>
-      <p class="hint">Untick anything that should stay visible. Add anything it missed. Then press Apply.</p>
       <div id="reviewList" class="review"></div>
       <div class="addrow">
-        <input id="addTerm" type="text" placeholder="Something it missed (a name, a number…)">
+        <input id="addTerm" type="text" placeholder="Hide something it missed">
         <button id="addBtn">Add</button>
       </div>
       <div class="row"><button id="apply" disabled>Apply changes</button></div>
@@ -228,33 +236,33 @@
         <button id="nextPage" class="link" aria-label="Next page">Next ›</button>
       </div>
       <img id="pageImg" class="pageimg" alt="Redacted page preview">
-      <p class="hint" id="pdfHint">This is the redacted PDF exactly as Claude will see it. Check photos and images: text inside them is not hidden.</p>
+      <p class="hint" id="pdfHint">Exactly what Claude will see. Text inside photos isn't hidden.</p>
       <p class="msg err hidden" id="pdfWarn"></p>
     </div>
     <div id="textBox">
       <textarea id="masked" class="mono" spellcheck="false"></textarea>
-      <p class="hint">You can edit this before sending. Anything still visible here will be shared.</p>
+      <p class="hint">Edit freely. Anything visible here will be shared.</p>
     </div>
     <div class="row">
       <button id="send" class="primary">Send to chat</button>
       <button id="sendText" class="hidden">Send as text instead</button>
-      <button id="copyMasked">Copy text</button>
+      <button id="copyMasked" class="link">Copy</button>
     </div>
     <div id="sendMsg" class="msg"></div>
   </section>
 
-  <section class="step">
+  <section class="step hidden" id="restoreStep">
     <h2><span class="num">3</span>Restore Claude's reply</h2>
-    <textarea id="reply" placeholder="Paste a reply with placeholders like <PERSON_1> to see the real names. This stays here and is never sent."></textarea>
+    <textarea id="reply" class="short" placeholder="Paste Claude's reply to see the real names. It stays here."></textarea>
     <div class="row"><button id="restore">Restore</button></div>
     <div id="restoreWrap" class="hidden">
       <textarea id="restored" readonly></textarea>
-      <div class="row"><button id="copyRestored">Copy</button></div>
+      <div class="row"><button id="copyRestored" class="link">Copy</button></div>
     </div>
     <div id="restoreMsg" class="msg"></div>
   </section>
 
-  <div class="foot">
+  <div class="foot hidden" id="foot">
     <span id="held">Codebook: 0 hidden values in memory</span>
     <button id="reset" class="link">Forget all</button>
   </div>

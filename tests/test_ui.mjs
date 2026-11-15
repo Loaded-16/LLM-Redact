@@ -117,6 +117,7 @@ async function main() {
   // Review: untick a false hit, add a miss, apply
   const rowTexts = await f.locator("#reviewList .val").allTextContents();
   check("review list shows each hidden value", rowTexts.includes("Rami Haddad") && rowTexts.includes("Najjar"), rowTexts);
+  await f.locator("#reviewSummary").click(); // the review list starts collapsed
   await f.locator("#reviewList label", { hasText: "Najjar" }).locator("input").uncheck();
   await f.locator("#addTerm").fill("Beirut");
   await f.locator("#addBtn").click();

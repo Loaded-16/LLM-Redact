@@ -80,6 +80,11 @@ function setStatus(text, kind = "") {
 
 function setHeld(n) {
   $("held").textContent = `Codebook: ${n} hidden value${n === 1 ? "" : "s"} in memory`;
+  // Restore and the codebook only matter once something has been hidden.
+  if (n > 0) {
+    $("restoreStep").classList.remove("hidden");
+    $("foot").classList.remove("hidden");
+  }
 }
 
 function updateRedactButton() {
