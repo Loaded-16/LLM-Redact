@@ -88,6 +88,11 @@
   .step:has(#fileRow.show) #input, .step:has(#fileRow.show) #drop { display: none; }
   .step:has(#fileRow.show) #fileRow { margin-top: 0; }
   #restoreStep { animation: rise 260ms var(--ease-out); margin-top: 0; font-size: 14px; }
+  #restoreStep { background: transparent; box-shadow: none; border-style: dashed; }
+  #restoreStep[open] { background: var(--surface); border-style: solid; }
+  .num.opt { background: var(--bg2); color: var(--text2); }
+  .num.opt svg { width: 12px; height: 12px; }
+  .tag { font-size: 11px; font-weight: 500; color: var(--text2); background: var(--bg2); padding: 1px 7px; border-radius: 999px; }
   .step-head { display: flex; width: 100%; justify-content: space-between; color: var(--text); }
   .step-head h2 { margin: 0; }
   .step-head::before { order: 2; }
@@ -256,7 +261,7 @@
   </section>
 
   <details class="step hidden" id="restoreStep">
-    <summary class="step-head" id="restoreSummary"><h2><span class="num">3</span>Restore Claude's reply</h2></summary>
+    <summary class="step-head" id="restoreSummary"><h2><span class="num opt" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 14L4 9l5-5"/><path d="M4 9h11a5 5 0 0 1 0 10h-3"/></svg></span>Restore Claude's reply <span class="tag">Optional</span></h2></summary>
     <textarea id="reply" class="short" placeholder="Paste Claude's reply to see the real names. It stays here."></textarea>
     <div class="row"><button id="restore">Restore</button></div>
     <div id="restoreWrap" class="hidden">
