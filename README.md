@@ -6,6 +6,8 @@ Tuned for Lebanese and Gulf work: Lebanese and Arab names, Lebanese and Gulf pho
 
 ## How it works
 
+![How LLM-Redact works: your document is redacted on your Mac, Claude sees only placeholders, and its reply is restored locally](docs/how-it-works.svg)
+
 - Claude sees only placeholders like `<PERSON_1>` and `<IBAN_CODE_1>`. The codebook stays in memory on your Mac.
 - Claude can call only two tools: one opens the panel, one reads a PDF you already redacted. Redacting and restoring are panel-only.
 - Everything runs locally as a child process of Claude Desktop. No network port is opened and no internet connection is made while redacting.
