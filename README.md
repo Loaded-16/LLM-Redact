@@ -1,4 +1,4 @@
-# Presidio Redactor for Claude Desktop
+# LLM-Redact: private redaction for Claude Desktop
 
 A private redaction panel that opens inside your Claude Desktop chat. Paste text or drop a file and it's redacted on your Mac with [Microsoft Presidio](https://microsoft.github.io/presidio/). You check the result, and only then does anything reach the chat. PDFs are redacted in place, keeping their layout, so Claude can read the real document without seeing the sensitive parts. Claude's replies can be turned back into real names inside the panel, and that never goes back to Claude.
 
@@ -41,7 +41,7 @@ Either click **Code ▸ Download ZIP** on GitHub and unzip it somewhere permanen
 
 ```
 cd ~/Applications
-git clone https://github.com/Loaded-16/presidio-redactor.git
+git clone https://github.com/Loaded-16/LLM-Redact.git
 ```
 
 > Keep it somewhere permanent. If you move the folder later, run `bash setup.sh` again from the new place.
@@ -49,7 +49,7 @@ git clone https://github.com/Loaded-16/presidio-redactor.git
 ### 3. Run setup
 
 ```
-cd ~/Applications/presidio-redactor
+cd ~/Applications/LLM-Redact
 bash setup.sh
 ```
 
@@ -115,7 +115,7 @@ The same value always gets the same placeholder (`<PERSON_1>`) for as long as Cl
 If you cloned it:
 
 ```
-cd ~/Applications/presidio-redactor
+cd ~/Applications/LLM-Redact
 git pull
 bash setup.sh
 ```
