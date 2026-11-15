@@ -2,7 +2,13 @@
 
 A private redaction panel that opens inside your Claude Desktop chat. Paste text or drop a file and it's redacted on your Mac with [Microsoft Presidio](https://microsoft.github.io/presidio/). You check the result, and only then does anything reach the chat. PDFs are redacted in place, keeping their layout, so Claude can read the real document without seeing the sensitive parts. Claude's replies can be turned back into real names inside the panel, and that never goes back to Claude.
 
-> **New:** a review step, optional OCR for scanned PDFs, a "flatten pages" option, and optional AI models (GLiNER for names, an Arabic-script model). See [Recent additions](#recent-additions).
+> **New:** a refreshed panel design, a review step, optional OCR for scanned PDFs, a "flatten pages" option, and optional AI models (GLiNER for names, an Arabic-script model). See [Recent additions](#recent-additions).
+
+<p align="center">
+  <img src="docs/screenshots/panel-after-full-light.png" alt="The redaction panel in light mode: paste or drop a file, choose what to hide, review the hidden values, send, and restore Claude's reply" width="380">
+  &nbsp;
+  <img src="docs/screenshots/panel-after-full-dark.png" alt="The same panel in dark mode" width="380">
+</p>
 
 Built for Lebanese and Gulf work: it knows common Lebanese and Arab names, Lebanese and Gulf phone formats, IBANs in any spelling, and leaves LBP and USD amounts readable.
 
@@ -85,7 +91,7 @@ Quit it fully with **Cmd+Q**, then reopen it.
 2. Paste text or drop a file: PDF, Word, PowerPoint, Excel or text, up to 10 MB.
 3. Optional, under **What to hide**:
    - Add client, brand or project names to always hide.
-   - Switch on places, dates, nationalities or links.
+   - Tap the chips to switch kinds on or off. Green chips are hidden. Places, dates, nationalities and links start off.
    - Tick **Remove photos and images from PDFs**.
    - Tick **Flatten PDF pages into pictures** for the safest output. The redacted file keeps no text layer at all. Claude still sees each page as an image, plus the redacted text.
 4. Press **Redact**, then go through **Review what's hidden**: one row per hidden value, with its type and placeholder.
@@ -134,6 +140,7 @@ The same value always gets the same placeholder (`<PERSON_1>`) for as long as Cl
 
 ## Recent additions
 
+- **Refreshed panel design:** the three steps sit on cards, "What to hide" is a row of toggle chips, and the status pill shows a live dot (pulsing while it starts, green when ready, red on an error). Buttons, fields and the file drop area have clear hover, focus and press states, and messages carry ✓ and ! icons. It follows Claude's light or dark theme and respects reduced motion.
 - **Review step:** one row per hidden value. Untick false hits, add misses, then Apply. Unticked values stay visible for the session, and adding one again hides it. Placeholder numbers are never reused, so an old `<CUSTOM_1>` in the chat can't restore to a different word.
 - **OCR for scanned PDFs** (`--ocr`): finds details in page pictures and blanks those pixels. Each redacted page is read back with OCR to check nothing detected is still legible.
 - **Flatten pages:** turns every page into a picture after redaction, so the file keeps no text layer, fonts or hidden objects.
@@ -188,6 +195,7 @@ worker/models.py       optional GLiNER and Arabic models
 src/                   source for the server and the panel
 scripts/               build script and the setup self-check
 tests/                 worker, server and browser tests
+docs/screenshots/      panel screenshots used in this README
 setup.sh, uninstall.sh macOS install and removal
 ```
 
