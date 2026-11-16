@@ -23,22 +23,22 @@ cd LLM-Redact
 bash setup.sh
 ```
 
-Setup installs Presidio and the English model (about 600 MB), runs a self-check, and asks before adding the server to Claude Desktop's config (backed up first). Then quit Claude Desktop with **Cmd+Q** and reopen it.
+Setup installs Presidio, the English model (about 600 MB) and the [GLiNER](https://github.com/urchade/GLiNER) PII model for names ([knowledgator/gliner-pii-base-v1.0](https://huggingface.co/knowledgator/gliner-pii-base-v1.0), about 1.5 GB with PyTorch), runs a self-check, and asks before adding the server to Claude Desktop's config (backed up first). Then quit Claude Desktop with **Cmd+Q** and reopen it.
 
 Keep the folder somewhere permanent. If you move it, run `bash setup.sh` again.
 
 ### AI models and add-ons
 
-Add flags to the setup command. They're remembered on later runs.
+GLiNER is installed and used for names by default. It's better than spaCy with unusual and non-English names and gives fewer false hits. Add flags to the setup command to change this or add more. They're remembered on later runs.
 
-| Flag | What it adds | Download |
+| Flag | What it does | Download |
 |---|---|---|
-| `--gliner` | [GLiNER](https://github.com/urchade/GLiNER) PII model ([knowledgator/gliner-pii-base-v1.0](https://huggingface.co/knowledgator/gliner-pii-base-v1.0)) replaces spaCy for finding names. Better with unusual and non-English names, fewer false hits. | ~1.5 GB |
+| `--no-gliner` | Skips GLiNER and uses spaCy only for names (`--gliner` turns it back on) | saves ~1.5 GB |
 | `--arabic` | [OpenMed Arabic PII](https://huggingface.co/OpenMed/OpenMed-PII-Arabic-BigMed-Large-560M-v1) model for Arabic-script names, addresses and IDs | ~3 GB |
 | `--ocr` | Redacts scanned PDFs with RapidOCR | ~80 MB |
-| `--basic` | Switches all add-ons off | |
+| `--basic` | Switches OCR and Arabic off | |
 
-Example: `bash setup.sh --gliner --ocr`. Models download once during setup and then load offline only. The Lebanese name list, IBAN, account and amount rules stay active on top of either model. If a model fails to load, the redactor keeps working without it (GLiNER falls back to spaCy), and the panel's status pill shows which engines are active (for example "Presidio ready · local · GLiNER · OCR").
+Example: `bash setup.sh --ocr`. Models download once during setup and then load offline only. The Lebanese name list, IBAN, account and amount rules stay active on top of either model. If a model fails to load, the redactor keeps working without it (GLiNER falls back to spaCy), and the panel's status pill shows which engines are active (for example "Presidio ready · local · GLiNER · OCR").
 
 **Status:** GLiNER passes the self-check on macOS, and its accuracy against spaCy is still being compared. The Arabic model is only tested with a stand-in so far, so the self-check after `--arabic` confirms whether it loads.
 
@@ -72,7 +72,7 @@ Left alone on purpose: currency amounts, short numbers in table cells, dates, ye
 ## Update and remove
 
 ```
-git pull && bash setup.sh     # update, then restart Claude Desktop
+git pull && bash setup.sh     # update (installs GLiNER unless you chose --no-gliner), then restart Claude Desktop
 bash uninstall.sh             # remove, then restart Claude Desktop and delete the folder
 ```
 

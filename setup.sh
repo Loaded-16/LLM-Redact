@@ -4,11 +4,13 @@
 # server to Claude Desktop's config (with a backup). Run from this folder:
 #   bash setup.sh            asks before touching the Claude config
 #   bash setup.sh --yes      no questions
-# Optional add-ons (remembered for later runs):
-#   --ocr      read scanned PDFs (about 80 MB)
-#   --gliner   GLiNER AI model for names instead of spaCy's (about 1.5 GB with PyTorch)
-#   --arabic   Arabic-script PII model (about 3 GB with PyTorch)
-#   --basic    switch all add-ons off again
+# By default the GLiNER AI model finds names (about 1.5 GB with PyTorch).
+# Options (remembered for later runs):
+#   --no-gliner  skip GLiNER and use spaCy's name finder only (smaller install)
+#   --gliner     switch GLiNER back on after --no-gliner
+#   --ocr        read scanned PDFs (about 80 MB)
+#   --arabic     Arabic-script PII model (about 3 GB with PyTorch)
+#   --basic      switch OCR and Arabic off again
 set -euo pipefail
 
 cd "$(dirname "$0")"
@@ -16,12 +18,12 @@ DIR="$(pwd)"
 YES=0
 CONFIG="$HOME/Library/Application Support/Claude/claude_desktop_config.json"
 
-# Add-ons chosen now or on an earlier run.
+# Options chosen now or on an earlier run. GLiNER is on unless opted out.
 FEATURES_FILE="$DIR/.features"
-OCR=0; GLINER=0; ARABIC=0
+OCR=0; GLINER=1; ARABIC=0
 if [[ -f "$FEATURES_FILE" ]]; then
   grep -qx ocr "$FEATURES_FILE" && OCR=1 || true
-  grep -qx gliner "$FEATURES_FILE" && GLINER=1 || true
+  grep -qx no-gliner "$FEATURES_FILE" && GLINER=0 || true
   grep -qx arabic "$FEATURES_FILE" && ARABIC=1 || true
 fi
 for arg in "$@"; do
@@ -29,12 +31,13 @@ for arg in "$@"; do
     --yes) YES=1 ;;
     --ocr) OCR=1 ;;
     --gliner) GLINER=1 ;;
+    --no-gliner) GLINER=0 ;;
     --arabic) ARABIC=1 ;;
-    --basic) OCR=0; GLINER=0; ARABIC=0 ;;
+    --basic) OCR=0; ARABIC=0 ;;
     *) echo "Unknown option: $arg"; exit 1 ;;
   esac
 done
-{ [[ $OCR -eq 1 ]] && echo ocr; [[ $GLINER -eq 1 ]] && echo gliner; [[ $ARABIC -eq 1 ]] && echo arabic; true; } > "$FEATURES_FILE"
+{ [[ $OCR -eq 1 ]] && echo ocr; [[ $GLINER -eq 0 ]] && echo no-gliner; [[ $ARABIC -eq 1 ]] && echo arabic; true; } > "$FEATURES_FILE"
 
 say()  { printf "\n\033[1m%s\033[0m\n" "$*"; }
 fail() { printf "\n\033[31m%s\033[0m\n" "$*"; exit 1; }
@@ -78,14 +81,14 @@ if [[ $OCR -eq 1 ]]; then
   echo "     done"
 fi
 if [[ $GLINER -eq 1 || $ARABIC -eq 1 ]]; then
-  say "     Installing PyTorch for the AI add-ons (large download, can take 10 minutes)"
+  say "     Installing PyTorch for the AI models (large download, can take 10 minutes)"
   .venv/bin/python -m pip install --quiet -r requirements-arabic.txt
 fi
 if [[ $GLINER -eq 1 ]]; then
-  say "     Add-on: GLiNER name model"
+  say "     GLiNER name model (skip with --no-gliner)"
   .venv/bin/python -m pip install --quiet -r requirements-gliner.txt
   HF_HUB_OFFLINE=0 .venv/bin/python -c "from gliner import GLiNER; GLiNER.from_pretrained('knowledgator/gliner-pii-base-v1.0')" >/dev/null \
-    || fail "Could not download the GLiNER model. Check your internet connection and run setup again."
+    || fail "Could not download the GLiNER model. Check your internet connection and run setup again, or run: bash setup.sh --no-gliner"
   echo "     done"
 fi
 if [[ $ARABIC -eq 1 ]]; then

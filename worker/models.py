@@ -1,8 +1,9 @@
-"""Optional AI models, switched on by setup flags.
+"""AI models chosen at setup (GLiNER by default, Arabic by flag).
 
   REDACTOR_NER=gliner   GLiNER PII model replaces spaCy's name finder.
                          Better at unusual and non-English names, fewer
-                         false names. Installed with: bash setup.sh --gliner
+                         false names. Installed by default; skip with
+                         bash setup.sh --no-gliner
   REDACTOR_ARABIC=1     OpenMed Arabic PII model for Arabic-script text
                          (names, addresses, IDs). Installed with:
                          bash setup.sh --arabic
